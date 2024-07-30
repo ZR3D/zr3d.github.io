@@ -2653,7 +2653,7 @@ function getLocalStorage(){
     const retrievedObject = localStorage.getItem("svginteractive");
     const retrievedObjectJson = JSON.parse(retrievedObject);
     if(retrievedObjectJson==null){
-        appData.designs.points = new Point(400, 400);
+        appData.designs[0].points.push(new Point(400, 400));
         saveLocalStorage();
     }else{
         appData.designIndex = retrievedObjectJson.designIndex;
