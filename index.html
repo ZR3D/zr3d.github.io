@@ -758,7 +758,7 @@ const tools = [
 
 const appData = new function(){
     this.designIndex = 0;      
-    this.designs = [new Design("arabic_98", "arabic_98.png")];
+    this.designs = [new Design("first_design")];
     this.guideColour = "#125634";
     this.guideHandleSize = 2;
 }
@@ -2653,15 +2653,14 @@ function getLocalStorage(){
     const retrievedObject = localStorage.getItem("svginteractive");
     const retrievedObjectJson = JSON.parse(retrievedObject);
     if(retrievedObjectJson==null){
+        appData.designs.points = new Point(400, 400);
         saveLocalStorage();
     }else{
         appData.designIndex = retrievedObjectJson.designIndex;
         appData.designs = retrievedObjectJson.designs;
         appData.guideColour = retrievedObjectJson.guideColour;
         appData.guideHandleSize = 2;
-        removeEmptyShapes(); 
-        
-        
+        removeEmptyShapes();         
         //update design 
         appData.designs.forEach(function(design, index){
             //design.points = design.points;
