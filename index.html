@@ -293,9 +293,8 @@ a:hover{color:#561234}
             </div>            
             <div class="control-box"> 
                 <div class="label">fill opacity</div>      
-                <button class="minus-btn" onclick="changeShapeProperty('fillOpacity', -10, true)">-</button>
-                <div class="number-text" id="fillOpacityText" contenteditable="true">100</div>
-                <button class="plus-btn" onclick="changeShapeProperty('fillOpacity', 10, true)">+</button>
+                <input id="fillOpacityRange" type="range" min="0" max="100" value="25" class="range" oninput="changeShapeProperty('fillOpacity', this.value, false)" />
+                <div id="fillOpacityText" class="range-label">25%</div>                
             </div>            
             <div class="control-box"> 
                 <div class="label">stroke colour</div> 
@@ -305,9 +304,9 @@ a:hover{color:#561234}
             </div>
             <div class="control-box">
                 <div class="label">stroke opacity</div>      
-                <button class="minus-btn" onclick="changeShapeProperty('strokeOpacity', -10, true)">-</button>
-                <div class="number-text" id="strokeOpacityText" contenteditable="true">100</div>
-                <button class="plus-btn" onclick="changeShapeProperty('strokeOpacity', 10, true)">+</button>
+                <input id="strokeOpacityRange" type="range" min="0" max="100" value="25" class="range" oninput="changeShapeProperty('strokeOpacity', this.value, false)" />
+                <div id="strokeOpacityText" class="range-label">25%</div> 
+                
             </div>            
             <div class="control-box">
                 <div class="label">us shape opacity</div>
@@ -713,7 +712,7 @@ function Shape(){
     //this will be the next colour in the list
     let colour = getHexColour(getCurrentDesign().shapes.length);
     this.data = [];
-    this.rotation = 6;
+    this.rotation = 1;
     this.skip = [];
     this.fill = colour;
     this.stroke = colour;
@@ -797,6 +796,7 @@ const sessionData = new function(){
     this.svgWidth = 100;
     this.svgHeight = 100;
     this.pairedPoint = -1;
+    this.isRedrawShapes = false;
 }
 ////////////////////////////////////////Objects End//////////////////////////////////////////////
 ////////////////////////////////////////Calculate Point Start//////////////////////////////////////////
@@ -1078,12 +1078,15 @@ function getHexColour(index){
     return hexColourList[getIndex(index, hexColourList.length)];
 }
 
+/*
 function getHexOpacity(val){
     if(val<0) val=0;
     if(val>100) val=100;
     val = val/10;
     return hexOpacityList[val];
 }
+*/
+
 
 function clearLayers(includePoints, includeCropped){
     if(includePoints){
@@ -1117,6 +1120,7 @@ function changeUnselectedShapeOpacity(num){
 } 
 
 function percentageToHexAlpha(percentage) {
+    percentage = Number(percentage);
     if (typeof percentage !== 'number' || percentage < 0 || percentage > 100) {
         throw new Error('Input must be a number between 0 and 100');
     }
@@ -1223,15 +1227,17 @@ function changeSnap(str){
 }
 
 function redrawShapes(){
-    if(getCurrentDesign().shapeRenderType=="make"){
-        makeShapeBtn();
-    }else if(getCurrentDesign().shapeRenderType=="rotate"){  
-        rotateShapesBtn();
-    }else if(getCurrentDesign().shapeRenderType=="repeat"){ 
-        repeatShapesBtn();
-    }else if(getCurrentDesign().shapeRenderType=="radial"){ 
-        radialRepeatShapesBtn();
-    }  
+    if(sessionData.isRedrawShapes){
+        if(getCurrentDesign().shapeRenderType=="make"){
+            makeShapeBtn();
+        }else if(getCurrentDesign().shapeRenderType=="rotate"){  
+            rotateShapesBtn();
+        }else if(getCurrentDesign().shapeRenderType=="repeat"){ 
+            repeatShapesBtn();
+        }else if(getCurrentDesign().shapeRenderType=="radial"){ 
+            radialRepeatShapesBtn();
+        }  
+    }
 }
 
 function changeMode(mode){
@@ -1977,10 +1983,10 @@ function makeTool(toolName){
         //sessionData.toolSnapPoints = tool.nodes;
     }else if(toolName=="centroid"){
         let centroidPoint = getPolygonCentroid(tool.points);
-        if(sessionData.toolNodeIndex>tool.points.length-1){    
+        if(sessionData.toolPointIndex>tool.points.length-1){    
             let xAdjust = tool.centroid.x - centroidPoint.x; 
             let yAdjust = tool.centroid.y - centroidPoint.y;           
-            tool.points = translateNodes(tool.points, xAdjust, yAdjust);
+            tool.points = translatePoints(tool.points, xAdjust, yAdjust);
         }
         centroidPoint = getPolygonCentroid(tool.points);
         changeCentroidQtyTxt.innerHTML = tool.sides;
@@ -1990,9 +1996,7 @@ function makeTool(toolName){
         const el = document.getElementById("temp");
         if(el!=null) el.remove();        
         createCircleSimple(centroidPoint, "temp", layerShapes);
-        createPath(tool.points, "none", appData.guideColour, 1, "toolName", layerTools, true);
-
-    
+        createPath(tool.points, "none", appData.guideColour, 1, "toolName", layerTools, true);    
     }else if(toolName=="isometricGrid"){
         rectangularGridContainer.setAttribute("class", "hide");
         isometricGridContainer.setAttribute("class", "show");
@@ -2000,7 +2004,7 @@ function makeTool(toolName){
         document.querySelector(".rectangular-btn").classList.remove("group-btn-on");         
         createIsometricGrid(); 
     }else if(toolName=="internalAngle"){
-        if(sessionData.toolNodeIndex==2){
+        if(sessionData.toolPointIndex==2){
             const lineAngle1 = angleBetweenTwoLines(tool.points[0], tool.points[2], tool.points[0], tool.points[1]);
             const lineAngle2 = angleBetweenTwoLines(tool.points[1], tool.points[0], tool.points[1], tool.points[2]); //correct
             let average = Math.abs((lineAngle1+lineAngle2)/2);
@@ -2024,11 +2028,6 @@ function makeTool(toolName){
         createPath([tool.points[0], tool.points[1]], "none", "#ccc", 1, "internalAngleInner", layerTools, true); 
         createPath(tool.nodes, "none", appData.guideColour, 1, "internalAngleOuter", layerTools, true);        
         sessionData.toolSnapPoints = tool.nodes;
-        
-        //centroidPoint = getPolygonCentroid(tool.points);
-        //createCircle("x", centroidPoint, guideHandleSize, "#561234", "none", 0, layerTools, "none");
-        
-        
     }else if(toolName=="getAngle"){ 
         const lineAngle1 = lineAngle(tool.points[1], tool.points[0], false);
         const lineAngle2 = lineAngle(tool.points[1], tool.points[2], false);    
@@ -2065,16 +2064,16 @@ function makeTool(toolName){
         createCircle("x", tool.points[1], guideHandleSize, "#561234", "none", 0, layerTools, "none");
     }else if(toolName=="polystar"){
         let centroidPoint = getPolygonCentroid(tool.points);      
-        if(sessionData.toolNodeIndex>tool.points.length-1){    
+        if(sessionData.toolPointIndex>tool.points.length-1){    
             let xAdjust = tool.centroid.x - centroidPoint.x; 
             let yAdjust = tool.centroid.y - centroidPoint.y;           
-            tool.points = translateNodes(tool.points, xAdjust, yAdjust);
+            tool.points = translatePoints(tool.points, xAdjust, yAdjust);
         }else{ 
-            const nodeMoved = tool.points[sessionData.toolNodeIndex];         
+            const nodeMoved = tool.points[sessionData.toolPointIndex];         
             createCircle("x", nodeMoved, guideHandleSize, "#561234", "none", 0, layerTools, "none");
             const angle = 360/tool.sides;
             tool.points = [];
-            let count = sessionData.toolNodeIndex;
+            let count = sessionData.toolPointIndex;
             for(let i=0; i<tool.sides; i++){
                 //re write starting with node at index eg 4 = [4]->[4,5]->[0,4,5]->[0,1,4,5]->[0,1,2,4,5]->[0,1,2,3,4,5]
                 tool.points[getIndex(count, tool.sides)] = (rotatePoint(centroidPoint, nodeMoved, i*angle));
@@ -2164,7 +2163,7 @@ function changePolyPointsBtn(toolName, textId){
         newPointList.push(point);        
     }        
     tool.points = newPointList;
-    console.log(tool, tool.points)
+    //console.log(tool, tool.points)
 }
 
 
@@ -2349,8 +2348,6 @@ function getCurrentPoint(){
 function getPointFromLetter(letter){
     return getCurrentDesign().points.find(point => point.letter === letter);
 }
-
-
 
 function updatePointLengthAndAngles(){
    const design = getCurrentDesign();
@@ -2810,7 +2807,9 @@ function changeShape(val){
     shapeData.value = shape.data.toString();
     shapeRotationText.innerHTML = shape.rotation;    
     fillOpacityText.innerHTML = shape.fillOpacity;
-    strokeOpacityText.innerHTML = shape.strokeOpacity;     
+    fillOpacityRange.value = Number(shape.fillOpacity);
+    strokeOpacityText.innerHTML = shape.strokeOpacity; 
+    strokeOpacityRange.value = Number(shape.strokeOpacity);    
     updateSkip(shape);    
     createShapeButtons();
     redrawShapes();
@@ -2993,10 +2992,11 @@ function rotateShape(path, shape, shapeIndex, cent, x, y){
             
             //if current Shape draw custom opacity
             if(sessionData.shapeIndex==shapeIndex || sessionData.mode!="shapes"){
-                createPath(newPath, shape.fill + getHexOpacity(shape.fillOpacity), shape.stroke + getHexOpacity(shape.strokeOpacity), 1, pathId, layerShapes, false);
+                createPath(newPath, shape.fill + percentageToHexAlpha(shape.fillOpacity), shape.stroke + percentageToHexAlpha(shape.strokeOpacity), 1, pathId, layerShapes, false);
             }else{
-                let hexOpacity = percentageToHexAlpha(sessionData.unselectedShapesOpacity);
-                createPath(newPath, shape.fill + hexOpacity, shape.stroke + hexOpacity, 1, pathId, layerShapes, false);
+                const hexFillOpacity = percentageToHexAlpha((sessionData.unselectedShapesOpacity/100) * shape.fillOpacity);
+                const hexStrokeOpacity = percentageToHexAlpha((sessionData.unselectedShapesOpacity/100) * shape.strokeOpacity);
+                createPath(newPath, shape.fill + hexFillOpacity, shape.stroke + hexStrokeOpacity, 1, pathId, layerShapes, false);
             }
             sessionData.rotatedShapes.push(newPath);            
         }
@@ -3031,10 +3031,11 @@ function makeShapeBtn(){
                 path = articulatePoints(path);
             }            
             if(sessionData.shapeIndex==index || sessionData.mode!="shapes"){
-                createPath(path, shape.fill + getHexOpacity(shape.fillOpacity), shape.stroke + getHexOpacity(shape.strokeOpacity), 1, "shape_" + index, layerShapes, false);
-            }else{
-                let hexOpacity = percentageToHexAlpha(sessionData.unselectedShapesOpacity);
-                createPath(path, shape.fill + hexOpacity, shape.stroke + hexOpacity, 1, "shape_" + index, layerShapes, false);
+                createPath(path, shape.fill + percentageToHexAlpha(shape.fillOpacity), shape.stroke + percentageToHexAlpha(shape.strokeOpacity), 1, "shape_" + index, layerShapes, false);
+            }else{           
+                const hexFillOpacity = percentageToHexAlpha((sessionData.unselectedShapesOpacity/100) * shape.fillOpacity);
+                const hexStrokeOpacity = percentageToHexAlpha((sessionData.unselectedShapesOpacity/100) * shape.strokeOpacity);
+                createPath(newPath, shape.fill + hexFillOpacity, shape.stroke + hexStrokeOpacity, 1, pathId, layerShapes, false);                
             }
         }        
     });
@@ -3166,7 +3167,7 @@ function radialRepeatShapesBtn(){
                 let yAdjust = translatePos.y - connectedPointCenter.y;           
                 //translate shape to new center
                 let shapePathListTranslated = translatePoints(shapePathList, xAdjust, yAdjust);
-                createPath(shapePathListTranslated, shape.fill + getHexOpacity(shape.fillOpacity), shape.stroke + getHexOpacity(shape.strokeOpacity), 1, "shape_" + index, layerShapes, false);
+                createPath(shapePathListTranslated, shape.fill + percentageToHexAlpha(shape.fillOpacity), shape.stroke + percentageToHexAlpha(shape.strokeOpacity), 1, "shape_" + index, layerShapes, false);
             }            
         }else{
             //create positions based on previous positionList and current rotation
@@ -3960,6 +3961,11 @@ function init(){
     updateDesignSelector();
     changeDesign(appData.designIndex); 
     selectMode('pointContainer','points'); 
+    
+    sessionData.isRedrawShapes = true;
+    redrawShapes();
+    
+    
     //exportPspnDataBtn(); //for testing    
     /*
     const path = [
