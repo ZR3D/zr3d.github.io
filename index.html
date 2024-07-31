@@ -114,9 +114,9 @@ a:hover{color:#561234}
             </defs>
             <g id="layerBackground" class="showLayer" transform="scale(1)"><image id="backgroundImage" href="" /></g>
             <g id="layerGrid" class="showLayer"></g>            
-            <g id="layerFill" class="showLayer"></g>  
             <g id="layerShapes" class="showLayer"></g>
             <g id="layerPoints" class="showLayer"></g>
+            <g id="layerPattern" class="showLayer"></g>
             <g id="layerRotatedPoints" class="showLayer"></g>
             <g id="layerCrop" class="showLayer"></g>
             <g id="layerTools" class="showLayer"></g>
@@ -344,10 +344,14 @@ a:hover{color:#561234}
             <div class="label">repeat</div>  
                 <button onclick="repeatShapesBtn()">repeat shapes</button>
             </div>
-            <div class="control-box"> 
+            <!-- <div class="control-box"> 
                 <div class="label">snap point</div>             
                 <input id="patternSnapText" type="text" placeholder="a1" style="width:40px" />
-            </div>
+            </div> -->            
+            <div class="control-box"> 
+                <div class="label">snap point</div>             
+                <button onclick="selectSnapsBtn()">select snap points</button>
+            </div>           
             <div class="control-box"> 
                 <div class="label">radial repeat</div> 
                 <button onclick="radialRepeatShapesBtn()">repeat shapes</button>
@@ -552,7 +556,7 @@ a:hover{color:#561234}
                 <input id="backgroundOpacityRange" type="range" min="0" max="100" value="80" class="range" oninput="changeBackgroundOpacity(this.value)" />
                 <div id="backgroundOpacityText" class="range-label">80%</div>
             </div>    
-            <div class="control-box">  
+            <div class="control-box control-box-last">  
                 <div class="label">bg rotation</div>                 
                 <input id="backgroundRotationRange" type="range" min="-50" max="50" value="0" class="range" oninput="changeBackgroundRotation(this.value)" />
                 <div id="backgroundRotationText" class="range-label">0</div>
@@ -651,6 +655,7 @@ const angleText = document.getElementById('angleText');
 const backgroundOpacityText = document.getElementById('backgroundOpacityText');
 const connectSelect = document.getElementById('connectSelect');
 const designSelect = document.getElementById('designSelect');
+const layerPoints = document.getElementById('layerPoints');
 const layerRotatedPoints = document.getElementById('layerRotatedPoints');
 const layerShapes = document.getElementById('layerShapes');
 const lengthText = document.getElementById('lengthText');
@@ -664,7 +669,6 @@ const shapeRotationText = document.getElementById('shapeRotationText');
 const xText = document.getElementById('xText');
 const yText = document.getElementById('yText');
 const zoomText = document.getElementById('zoomText');
-const layerHud = document.getElementById('layerHud');
 const hudLineHorizontal = document.getElementById('hudLineHorizontal');
 const hudLineVertical = document.getElementById('hudLineVertical');
 const hexColourList = ["#FE2712","#FC600A","#FB9902","#FCCC1A","#cccc00","#B2D732","#66B032","#347C98","#0247FE","#4424D6","#8601AF","#C21460"];
@@ -788,6 +792,8 @@ const sessionData = new function(){
     this.repeatedShapeSnapPoints = []; //is used?
     this.toolSnapPoints = [];
     this.gridSnapPoints = [];
+    this.selectedSnaps = [];
+    this.selectedSnapsIsSelecting = false;
     this.svgWidth = 100;
     this.svgHeight = 100;
     this.pairedPoint = -1;
@@ -920,7 +926,10 @@ function createAnimation(id, attributeName, values, dur, repeatCount){
     animation.setAttribute("values", values); //"6;1;6;1"
     animation.setAttribute("dur", dur + "s"); 
     animation.setAttribute("repeatCount", repeatCount); 
-    const el = document.getElementById(id); 
+    const el = document.getElementById(id);
+    if(el==null){ //if element does not exist
+        return false;
+    }    
     el.appendChild(animation);        
     const elAnimation = document.getElementById(animationId); 
     elAnimation.beginElement();
@@ -1235,8 +1244,27 @@ function changeMode(mode){
         layerShapes.setAttribute("opacity", 1);
         changeShape(sessionData.shapeIndex);
     }else if(mode=="patterns"){
-        redrawShapes();
+        layerPattern.setAttribute("opacity", 1);
+        redrawShapes();        
     }
+    
+    if(mode=="patterns"){
+        layerPattern.setAttribute("opacity", 1);
+    }else{
+        layerPattern.setAttribute("opacity", 0);
+    }
+
+    if(mode=="crop"){
+        layerCrop.setAttribute("opacity", 1);
+    }else{
+        layerCrop.setAttribute("opacity", 0);
+    }
+
+    
+
+    
+    
+    
     //will remove if not in crop mode;
     updateCrop();
 }
@@ -1651,9 +1679,23 @@ function downHandler(evt){
     }else if(mode=="patterns"){    
         if(sessionData.pointType=="patternPoint"){
             sessionData.patternPointIndex = closestPoint.index;
+            changePatternPointBtn(closestPoint.index);
             sessionData.drag = true;
         }else{
             let repeatedShapePoint = findSnap(sessionData.snapPoints, mousePosition, "x");
+            if(repeatedShapePoint.id!=undefined & sessionData.selectedSnapsIsSelecting){
+                let selectedSnaps = sessionData.selectedSnaps;
+                selectedSnaps.push(repeatedShapePoint);
+                if(selectedSnaps.length==2){
+                    const currentPatternPoint = design.patternPoints[sessionData.patternPointIndex];
+                    const x = selectedSnaps[1].x - selectedSnaps[0].x;
+                    const y = selectedSnaps[1].y - selectedSnaps[0].y;
+                    movePoint(x, y, false);
+                    sessionData.selectedSnapsIsSelecting = false;
+                    selectedSnaps = [];
+                }                
+            }
+            /*
             if(repeatedShapePoint.id!=undefined){        
                 if(repeatedShapePoint.p.x==0, repeatedShapePoint.p.y==0){
                     sessionData.patternPointIndex = 0; 
@@ -1665,7 +1707,8 @@ function downHandler(evt){
                 sessionData.patternSnapOffset = {x:repeatedShapePoint.x - patternPoint.x, y:repeatedShapePoint.y - patternPoint.y}
                 //console.log(sessionData.patternSnapOffset)
                 //createCircle("patternSnapOffset", sessionData.patternSnapOffset, 2, "#561234cc", "none", 0, layerPoints, "none");
-            }       
+            } 
+            */
         } 
     }else if(mode=="tools"){ 
         if(tool.name=="polystar" || tool.name=="centroid"){
@@ -1700,8 +1743,9 @@ function moveHandler(evt){
     //update hud
     if(sessionData.mode=="points" || sessionData.mode=="shapes"){
         if(mouse.x<1060){
-            hudLineVertical.setAttribute('d', `M${mousePosition.x} 0  L${mousePosition.x} 1080`);
-            hudLineHorizontal.setAttribute('d', `M-300 ${mousePosition.y} L1080 ${mousePosition.y}`);            
+            
+            hudLineVertical.setAttribute('d', `M${mousePosition.x} 0  L${mousePosition.x} 2000`);
+            hudLineHorizontal.setAttribute('d', `M-300 ${mousePosition.y} L2000 ${mousePosition.y}`);            
         }
     }
     //snapping
@@ -1743,12 +1787,15 @@ function moveHandler(evt){
             //console.log(sessionData.patternSnapOffset);            
             let point = {x:mousePosition.x+sessionData.patternSnapOffset.x, y:mousePosition.y+sessionData.patternSnapOffset.y}
             //createCircle("patternSnapOffset", point, 2, "#561234cc", "none", 0, layerPoints, "none");
-            let snapPoint = findSnap(firstRepeatedShape, point, "x");
+            
+            let snapPoint = findSnap(sessionData.snapPoints, point, "x"); //
+            
             if(snapPoint.x!=point.x & snapPoint.y!=point.y){ //as it returns same if not found
                     console.log(snapPoint);
                     mousePosition.x = snapPoint.x-sessionData.patternSnapOffset.x
                     if(sessionData.patternPointIndex!=0) mousePosition.y = snapPoint.y-sessionData.patternSnapOffset.y
-            }                     
+            }
+            
             movePoint(mousePosition.x, mousePosition.y, true);
         }else if(mode=="crop" & pointType=="cropPoint"){
             movePoint(mousePosition.x, mousePosition.y, true);
@@ -2233,8 +2280,7 @@ function changeBackgroundColor(hexColour){
 
 function loadBackgroundImage(){
     var design = getCurrentDesign();
-    console.log(design.image)
-    const bgImage = (design.image==undefined)? "":design.image;
+    const bgImage = (design.image==undefined || design.image=="images/")? "":design.image;
     backgroundImage.setAttribute("href", bgImage);
 }
 
@@ -2273,8 +2319,7 @@ function changePatternPointBtn(index){
     createPatternButtons();
     updatePoints();
     redrawShapes();
-    const id = "p" + (Number(index)+1);
-    console.log(id);
+    const id = "p" + (Number(index)+1); 
     createAnimation(id, "r", "0;7;0", 1, 2);
 }
 
@@ -2534,8 +2579,8 @@ function updatePoints(){
     });    
     getCurrentDesign().patternPoints.forEach(function(val, index){    
         if(val!=null){
-            createOrUpdateCircle("p" + (index+1), index, index+22, val, "none", 2, "none", 0, layerPoints); 
-            createOrUpdatePath(polyShapePath(val, 6, 6, 30), "none", getHexColour(index+22) + "33", 2, "p" + (index+1) + "_halo", layerPoints, true);                 
+            createOrUpdateCircle("p" + (index+1), index, index+22, val, "none", 2, "none", 0, layerPattern); 
+            createOrUpdatePath(polyShapePath(val, 6, 6, 30), "none", getHexColour(index+22) + "33", 2, "p" + (index+1) + "_halo", layerPattern, true);                 
         }  
     });
     
@@ -2772,7 +2817,7 @@ function changeShape(val){
     changeColourValueBasic('shapeFillPickerBtn', shape.fill);
     changeColourValueBasic('shapeStrokePickerBtn', shape.stroke);
     lockShapeBtn.innerHTML = (shape.isLocked)? "unlock":"lock";  
-    saveLocalStorage(); 
+    saveLocalStorage();
     createAnimation("shape_" + val + "_0", "stroke-width", "1;7;1", 1, 2);    
 }
 
@@ -3579,7 +3624,7 @@ function exportCodeBtn(){
 
 function triggerDownload(imgURI) {
     const a = document.createElement('a');
-    a.download = 'l_system.png'; // filename
+    a.download = getCurrentDesign().title + '.png'; // filename
     a.target = '_blank';
     a.href = imgURI;
     a.dispatchEvent(new MouseEvent('click', {
@@ -3682,7 +3727,7 @@ function exportPspnDataBtn(){
 
     //points
     for(const [index, point] of points.entries()){
-      pspnString += `point:${point.letter}, angle:${point.angle}, length:${point.length}, rotation:${point.rotation}, center:${letters[point.connect]}\n`   
+      pspnString += `point:${point.letter}, center:${letters[point.connect]}, angle:${point.angle}, length:${point.length}, rotation:${point.rotation}\n`   
     }
     //shapes
     for(const [index, shape] of shapes.entries()){
@@ -3690,7 +3735,7 @@ function exportPspnDataBtn(){
     }
     //patterns    
     for(const [index, patternPoint] of patternPoints.entries()){
-      pspnString += `pattern:p${index+1}, angle:${patternPoint.angle}, length:${patternPoint.length}, center:${letters[patternPoint.connect]}\n`  
+      pspnString += `pattern:p${index+1}, center:a, angle:${patternPoint.angle}, length:${patternPoint.length}}\n`  
     }
     console.log(pspnString);
     saveText(pspnString, design.title, "pspn");
@@ -3941,6 +3986,13 @@ for(var i=0; i<myArr.length; i++){
 }
 console.log(myArrTemp)
 */ 
+
+function selectSnapsBtn(){
+    sessionData.selectedSnaps = [];
+    sessionData.selectedSnapsIsSelecting = true;
+}
+
+
 
 </script>
 <script>
